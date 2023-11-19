@@ -1,10 +1,10 @@
-PROJECT package
+tracerlib package
 ===============
 
 Module contents
 ---------------
 
-.. automodule:: PROJECT
+.. automodule:: tracerlib
    :members:
    :undoc-members:
    :show-inheritance:

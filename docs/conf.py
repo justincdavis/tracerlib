@@ -6,17 +6,17 @@
 import os
 import sys
 sys.path.insert(0, os.path.abspath(os.path.join("..", "src")))
-import PROJECT
+import tracerlib
 
 # -- Project information -----------------------------------------------------
 # https://www.sphinx-doc.org/en/master/usage/configuration.html#project-information
 
-project = 'PROJECT'
+project = 'tracerlib'
 copyright = '2023, AUTHORS'
 author = 'AUTHORS'
 version = '0.0.0'
 
-assert version == PROJECT.__version__
+assert version == tracerlib.__version__
 
 # -- General configuration ---------------------------------------------------
 # https://www.sphinx-doc.org/en/master/usage/configuration.html#general-configuration

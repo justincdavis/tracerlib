@@ -16,20 +16,20 @@ clean:
 	rm -rf build
 	rm -rf dist
 	rm -rf *.egg-info
-	rm -rf PROJECT/*.egg-info
-	rm -rf src/PROJECT/*.egg-info
+	rm -rf tracerlib/*.egg-info
+	rm -rf src/tracerlib/*.egg-info
 	pyclean .
 
 docs:
 	rm -rf docs/source/*
-	sphinx-apidoc -o docs/source/ src/PROJECT/
+	sphinx-apidoc -o docs/source/ src/tracerlib/
 	cd docs && make html
 
 ci: mypy
 	./scripts/ci/pyupgrade.sh
-	python3 -m ruff ./src//PROJECT --fix
-	python3 -m isort src/PROJECT
-	python3 -m black src/PROJECT --safe
+	python3 -m ruff ./src//tracerlib --fix
+	python3 -m isort src/tracerlib
+	python3 -m black src/tracerlib --safe
 
 mypy:
 	./scripts/ci/mypy.sh
