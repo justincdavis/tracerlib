@@ -35,6 +35,8 @@ classifiers = [
 ]
 requires-python=">=3.8, <=3.12"
 dependencies = [
+    "stdlib-list",
+    "typing_extensions>=4.0.0",
     "setuptools",
 ]
 

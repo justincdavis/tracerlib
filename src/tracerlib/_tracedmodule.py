@@ -3,12 +3,13 @@ from __future__ import annotations
 import functools
 import sys
 import time
-from types import ModuleType, TracebackType
 from typing import TYPE_CHECKING, Any, Callable
 
 from ._types import Trace, TraceEntry
 
 if TYPE_CHECKING:
+    from types import ModuleType, TracebackType
+
     from typing_extensions import Self
 
 
@@ -40,10 +41,13 @@ class TracedModule:
         self._name: str = name
         self._callback: Callable[[str], None] = callback
         self._trace: Trace = []
-        self._traced_module: ModuleType = TracedModule._get_traced_module(
+        traced_mod, traced_func, traced_submods = TracedModule._get_traced_module(
             self._name,
             tracer_func=functools.partial(self._tracer_func, callback=self._callback),
         )
+        self._traced_module: ModuleType = traced_mod
+        self._traced_functions: set[str] = traced_func
+        self._traced_submodules: set[str] = traced_submods
         self._original_module: ModuleType = sys.modules[self._name]
 
         # create a local trace list which gets intialized when the context manager is entered
@@ -64,20 +68,22 @@ class TracedModule:
     def _get_traced_module(
         name: str,
         tracer_func: Callable[[Callable], Callable],
+        traced_functions: set[str] | None = None,
         traced_modules: set[str] | None = None,
-    ) -> ModuleType:
+    ) -> tuple[ModuleType, set[str], set[str]]:
+        if traced_functions is None:
+            traced_functions = set()
         if traced_modules is None:
             traced_modules = set()
+        traced_modules.add(name)
         in_mod: ModuleType = sys.modules[name]
         for attr in dir(in_mod):
             if not attr.startswith("_"):
                 func: Any = getattr(in_mod, attr)
-                print(f"attr: {attr}, func: {func}, type: {type(func)}")
-                print(f"{isinstance(func, ModuleType)}")
-                # handle module level functions
-                if callable(func):
+                if callable(func) and attr not in traced_functions:
+                    traced_functions.add(attr)
                     setattr(in_mod, attr, tracer_func(func))
-        return in_mod
+        return in_mod, traced_functions, traced_modules
 
     def _tracer_func(
         self: Self, func: Callable, callback: Callable[[str], None]

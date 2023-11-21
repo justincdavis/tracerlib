@@ -7,7 +7,7 @@ if TYPE_CHECKING:
     from typing_extensions import Self, TypeAlias
 
 
-@dataclass(init=True, repr=True)
+@dataclass(init=True, eq=True, repr=False)
 class TraceEntry:
     timestamp: float
     module_name: str
