@@ -3,12 +3,14 @@ from __future__ import annotations
 import functools
 import sys
 import time
+from types import ModuleType
 from typing import TYPE_CHECKING, Any, Callable
 
+from ._stdlib import _stdlib
 from ._types import Trace, TraceEntry
 
 if TYPE_CHECKING:
-    from types import ModuleType, TracebackType
+    from types import TracebackType
 
     from typing_extensions import Self
 
@@ -27,7 +29,12 @@ class TracedModule:
         Use to get the trace of the module calls.
     """
 
-    def __init__(self: Self, name: str, callback: Callable[[str], None]) -> None:
+    def __init__(
+        self: Self,
+        name: str,
+        callback: Callable[[str], None],
+        trace_submodules: bool | None = None,
+    ) -> None:
         """
         Use to trace module calls.
 
@@ -37,17 +44,36 @@ class TracedModule:
             The name of the module to trace.
         callback : Callable[[str], None]
             The callback function to call when a module call is traced.
+        trace_submodules : bool, optional
+            Whether to trace the submodules of the module, by default None
+            If None, then the submodules are traced.
         """
         self._name: str = name
         self._callback: Callable[[str], None] = callback
+        if trace_submodules is None:
+            trace_submodules = False
+        self._trace_submodules: bool = trace_submodules
         self._trace: Trace = []
-        traced_mod, traced_func, traced_submods = TracedModule._get_traced_module(
+        traced_mod = TracedModule._get_traced_module(
             self._name,
             tracer_func=functools.partial(self._tracer_func, callback=self._callback),
         )
         self._traced_module: ModuleType = traced_mod
-        self._traced_functions: set[str] = traced_func
-        self._traced_submodules: set[str] = traced_submods
+        self._original_submodules: set[ModuleType] = TracedModule._get_submodules(
+            self._traced_module
+        )
+        self._traced_submodules: set[ModuleType] = set()
+        if self._trace_submodules:
+            for submodule in self._original_submodules:
+                traced_submod = TracedModule._get_traced_module(
+                    submodule.__name__,
+                    tracer_func=functools.partial(
+                        self._tracer_func,
+                        callback=self._callback,
+                        submodule=submodule.__name__,
+                    ),
+                )
+                self._traced_submodules.add(traced_submod)
         self._original_module: ModuleType = sys.modules[self._name]
 
         # create a local trace list which gets intialized when the context manager is entered
@@ -70,7 +96,7 @@ class TracedModule:
         tracer_func: Callable[[Callable], Callable],
         traced_functions: set[str] | None = None,
         traced_modules: set[str] | None = None,
-    ) -> tuple[ModuleType, set[str], set[str]]:
+    ) -> ModuleType:
         if traced_functions is None:
             traced_functions = set()
         if traced_modules is None:
@@ -83,10 +109,36 @@ class TracedModule:
                 if callable(func) and attr not in traced_functions:
                     traced_functions.add(attr)
                     setattr(in_mod, attr, tracer_func(func))
-        return in_mod, traced_functions, traced_modules
+        return in_mod
+
+    @staticmethod
+    def _get_submodules(
+        module: ModuleType, exclude: set[str] | None = None
+    ) -> set[ModuleType]:
+        if exclude is None:
+            exclude = set()
+        submodules = set()
+        for attr in dir(module):
+            if not attr.startswith("_"):
+                thing = getattr(module, attr)
+                if (
+                    isinstance(thing, ModuleType)
+                    and thing not in exclude
+                    and attr not in _stdlib
+                ):
+                    submodules.add(thing)
+                    exclude.add(thing)
+                    # submodule_submodules = TracedModule._get_submodules(
+                    #     thing, exclude=exclude
+                    # )
+                    # submodules.update(submodule_submodules)
+        return submodules
 
     def _tracer_func(
-        self: Self, func: Callable, callback: Callable[[str], None]
+        self: Self,
+        func: Callable,
+        callback: Callable[[str], None],
+        submodule: str | None = None,
     ) -> Callable:
         @functools.wraps(func)
         def wrapper(*args: tuple[Any], **kwargs: dict[str, Any]) -> Any:  # noqa: ANN401
@@ -95,7 +147,8 @@ class TracedModule:
             self._trace = TraceEntry(
                 time.monotonic(), self._name, func.__name__, in_args, in_kwargs
             )
-            callback(f"{self._name}.{func.__name__}")
+            mod_name = self._name if submodule is None else submodule
+            callback(f"{mod_name}.{func.__name__}")
             return result
 
         return wrapper
@@ -103,10 +156,16 @@ class TracedModule:
     def begin(self: Self) -> None:
         """Use to begin tracing module calls."""
         sys.modules[self._name] = self._traced_module
+        if self._trace_submodules:
+            for submodule in self._traced_submodules:
+                sys.modules[submodule.__name__] = submodule
 
     def end(self: Self) -> None:
         """Use to end tracing module calls."""
         sys.modules[self._name] = self._original_module
+        if self._trace_submodules:
+            for submodule in self._original_submodules:
+                sys.modules[submodule.__name__] = submodule
 
     def get_trace(self: Self) -> Trace:
         """
