@@ -135,12 +135,12 @@ class TracedModule:
         def wrapper(*args: tuple[Any], **kwargs: dict[str, Any]) -> Any:  # noqa: ANN401
             in_args, in_kwargs = args, kwargs
             result: Any = func(*args, **kwargs)
+            mod_name = self._name if submodule is None else submodule
             self._trace.append(
                 TraceEntry(
-                    time.monotonic(), self._name, func.__name__, in_args, in_kwargs
+                    time.monotonic(), mod_name, func.__name__, in_args, in_kwargs
                 )
             )
-            mod_name = self._name if submodule is None else submodule
             callback(f"{mod_name}.{func.__name__}")
             return result
 
