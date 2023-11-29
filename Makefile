@@ -25,14 +25,15 @@ docs:
 	sphinx-apidoc -o docs/source/ src/tracerlib/
 	cd docs && make html
 
-ci: mypy
-	./scripts/ci/pyupgrade.sh
+ci:	
+	-./scripts/ci/pyupgrade.sh
 	python3 -m ruff ./src//tracerlib --fix
 	python3 -m isort src/tracerlib
 	python3 -m black src/tracerlib --safe
+	python3 -m mypy src/tracerlib --config-file=pyproject.toml
 
 mypy:
-	./scripts/ci/mypy.sh
+	python3 -m mypy src/tracerlib --config-file=pyproject.toml
 
 test:
 	./scripts/run_tests.sh
